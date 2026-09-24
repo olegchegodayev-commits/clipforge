@@ -43,7 +43,7 @@ def ffmpeg_path():
 
 def run_ytdlp(args):
     last_error = None
-    for client in ("android", "web_safari"):
+    for client in ("android_vr", "android", "web_safari"):
         command = [str(YTDLP), "--no-warnings", "--socket-timeout", "12", "--extractor-args", f"youtube:player_client={client}"]
         binary = ffmpeg_path()
         if binary:
@@ -164,7 +164,7 @@ class Handler(BaseHTTPRequestHandler):
         if not valid_url(url):
             self.send_error(400, "Invalid URL")
             return
-        command = [str(YTDLP), "--no-playlist", "--no-warnings", "--extractor-args", "youtube:player_client=android"]
+        command = [str(YTDLP), "--no-playlist", "--no-warnings", "--extractor-args", "youtube:player_client=android_vr"]
         binary = ffmpeg_path()
         if binary:
             command += ["--ffmpeg-location", binary]
