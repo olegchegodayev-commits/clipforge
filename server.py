@@ -43,16 +43,17 @@ def ffmpeg_path():
 
 def run_ytdlp(args):
     last_error = None
-    for client in ("android", "web_safari", "mweb"):
-        command = [str(YTDLP), "--no-warnings", "--extractor-args", f"youtube:player_client={client}"]
+    for client in ("android", "web_safari"):
+        command = [str(YTDLP), "--no-warnings", "--socket-timeout", "12", "--extractor-args", f"youtube:player_client={client}"]
         binary = ffmpeg_path()
         if binary:
             command += ["--ffmpeg-location", binary]
         try:
-            return subprocess.run(command + args, capture_output=True, text=True, check=True)
-        except subprocess.CalledProcessError as error:
+            return subprocess.run(command + args, capture_output=True, text=True, check=True, timeout=18)
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
             last_error = error
-            logger.warning("yt-dlp client %s failed: %s", client, (error.stderr or "").strip()[-500:])
+            details = getattr(error, "stderr", None) or str(error)
+            logger.warning("yt-dlp client %s failed: %s", client, details.strip()[-500:])
     raise last_error
 
 
