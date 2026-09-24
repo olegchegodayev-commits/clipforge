@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://clipforge-2ohw.onrender.com/sitemap.xml

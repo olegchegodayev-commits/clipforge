@@ -1,0 +1,9 @@
+{
+  "name": "FileDrop — конвертер изображений",
+  "short_name": "FileDrop",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f3efe5",
+  "theme_color": "#3d48d8",
+  "icons": [{"src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml"}]
+}
