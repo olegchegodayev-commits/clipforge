@@ -1,91 +1,146 @@
-const urlInput = document.querySelector('#url');
-const analyzeButton = document.querySelector('#analyze');
+const fileInput = document.querySelector('#file-input');
+const dropzone = document.querySelector('#dropzone');
+const formatInput = document.querySelector('#format');
+const qualityInput = document.querySelector('#quality');
+const qualityValue = document.querySelector('#quality-value');
+const maxWidthInput = document.querySelector('#max-width');
+const convertButton = document.querySelector('#convert');
+const downloadAllButton = document.querySelector('#download-all');
 const clearButton = document.querySelector('#clear');
-const message = document.querySelector('#message');
-const result = document.querySelector('#result');
-const quality = document.querySelector('#quality');
-const downloadButton = document.querySelector('#download');
-const activeDownloads = document.querySelector('#active-downloads');
-const historyPanel = document.querySelector('#history-panel');
-const historyList = document.querySelector('#history-list');
+const fileList = document.querySelector('#file-list');
+const fileCount = document.querySelector('#file-count');
+const emptyState = document.querySelector('#empty-state');
 const toast = document.querySelector('#toast');
-let currentUrl = '';
-let currentData = null;
+const files = [];
 let toastTimer;
 
-function showMessage(text = '') { message.textContent = text; }
-function showToast(text) { toast.textContent = text; toast.classList.add('visible'); clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.classList.remove('visible'), 3200); }
-function currentSize() { return Number(currentData?.size_bytes?.[quality.value] || 0); }
-function getHistory() { return JSON.parse(localStorage.getItem('clipforge-history') || '[]'); }
-function renderHistory() { const items = getHistory(); historyPanel.classList.toggle('hidden', items.length === 0); historyList.innerHTML = items.map((item) => `<div class="history-item"><strong>${item.title}</strong><span>${item.quality}p · ${item.size} · ${item.date}</span></div>`).join(''); }
-function addHistory(item) { const items = [{ ...item, date: new Date().toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) }, ...getHistory()].slice(0, 12); localStorage.setItem('clipforge-history', JSON.stringify(items)); renderHistory(); }
-
-async function downloadItem(item) {
-  const card = document.createElement('div');
-  card.className = 'download-card';
-  card.innerHTML = `<div class="download-card-header"><strong>${item.title}</strong><button class="close-download" aria-label="Закрыть">×</button></div><ol class="download-steps"><li class="active">Проверяем формат видео</li><li>Готовим видео и звук</li><li>Подготавливаем файл</li><li>Передаём в браузер</li></ol><div class="download-status">Процесс идёт. Не закрывайте страницу.</div><div class="progress-track"><div class="progress-fill indeterminate" style="width:100%"></div><span class="progress-message">Проверяем формат видео...</span><span class="progress-elapsed">Прошло 00:00</span><span class="progress-label">Подготовка</span></div><button class="cancel-button">Отменить</button>`;
-  activeDownloads.prepend(card);
-  const status = card.querySelector('.download-status');
-  const steps = [...card.querySelectorAll('.download-steps li')];
-  const elapsedLabel = card.querySelector('.progress-elapsed');
-  const fill = card.querySelector('.progress-fill');
-  const label = card.querySelector('.progress-label');
-  const progressMessage = card.querySelector('.progress-message');
-  const cancel = card.querySelector('.cancel-button');
-  const close = card.querySelector('.close-download');
-  const controller = new AbortController();
-  const startedAt = Date.now(); let preparationStep = 0;
-  const elapsedTimer = setInterval(() => {
-    const elapsed = Math.floor((Date.now() - startedAt) / 1000);
-    elapsedLabel.textContent = `Прошло ${String(Math.floor(elapsed / 60)).padStart(2, '0')}:${String(elapsed % 60).padStart(2, '0')}`;
-    preparationStep = Math.min(2, Math.floor(elapsed / 3)); steps.forEach((step, index) => step.classList.toggle('active', index === preparationStep)); progressMessage.textContent = `${steps[preparationStep].textContent}...`;
-  }, 1000);
-  close.addEventListener('click', () => card.remove());
-  cancel.addEventListener('click', () => { cancel.disabled = true; status.textContent = 'Отмена...'; controller.abort(); });
-  try {
-    const response = await fetch(`/api/download?url=${encodeURIComponent(item.url)}&quality=${item.quality}`, { signal: controller.signal });
-    if (!response.ok) throw new Error('Не удалось скачать файл.');
-    steps.forEach((step, index) => step.classList.toggle('active', index === 3));
-    status.textContent = 'Скачивание идёт. Не закрывайте страницу.'; progressMessage.textContent = 'Файл передаётся в браузер';
-    const total = Number(response.headers.get('Content-Length'));
-    const reader = response.body.getReader();
-    const chunks = [];
-    let received = 0;
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks.push(value);
-      received += value.length;
-      if (total) {
-        const percent = Math.round((received / total) * 100);
-        fill.classList.remove('indeterminate'); fill.style.width = `${percent}%`; label.textContent = `${percent}%`;
-      }
-    }
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(new Blob(chunks, { type: 'video/mp4' }));
-    link.download = `${item.title.replace(/[\\/:*?"<>|]/g, '').slice(0, 80) || 'clipforge-video'}.mp4`;
-    link.click(); URL.revokeObjectURL(link.href);
-    steps.forEach((step) => step.classList.remove('active')); progressMessage.textContent = 'Файл готов'; fill.classList.remove('indeterminate'); fill.style.width = '100%'; label.textContent = '100%'; status.textContent = 'Видео сохранено и готово к просмотру.'; cancel.remove(); addHistory(item); showToast('Скачивание завершено');
-  } catch (error) {
-    if (error.name === 'AbortError') { progressMessage.textContent = 'Скачивание отменено'; status.textContent = 'Процесс остановлен пользователем.'; fill.classList.remove('indeterminate'); fill.style.width = '0%'; label.textContent = 'Отменено'; cancel.remove(); showToast('Скачивание отменено'); }
-    else { status.textContent = error.message; showToast(error.message); }
-  } finally { clearInterval(elapsedTimer); }
+function showToast(text) {
+  toast.textContent = text;
+  toast.classList.add('visible');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('visible'), 3200);
 }
 
-clearButton.addEventListener('click', () => { urlInput.value = ''; currentData = null; result.classList.add('hidden'); showMessage(); urlInput.focus(); });
-analyzeButton.addEventListener('click', async () => {
-  const url = urlInput.value.trim();
-  if (!url) return showMessage('Сначала вставьте ссылку на видео.');
-  analyzeButton.disabled = true; analyzeButton.firstChild.textContent = 'Проверяем... '; showMessage();
-  try {
-    const response = await fetch('/api/info', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
-    const data = await response.json(); if (!response.ok) throw new Error(data.error);
-    currentUrl = url; currentData = data; document.querySelector('#thumbnail').src = data.thumbnail; document.querySelector('#title').textContent = data.title; document.querySelector('#channel').textContent = data.channel || 'YouTube'; document.querySelector('#duration').textContent = data.duration || '—';
-    quality.innerHTML = data.heights.map((height) => `<option value="${height}">${height}p · ${data.sizes?.[height] || 'размер уточняется'}</option>`).reverse().join(''); result.classList.remove('hidden');
-  } catch (error) { result.classList.add('hidden'); showMessage(error.message || 'Не удалось проверить ссылку.'); }
-  finally { analyzeButton.disabled = false; analyzeButton.firstChild.textContent = 'Проверить '; }
-});
-downloadButton.addEventListener('click', () => { if (currentData) downloadItem({ url: currentUrl, title: currentData.title, quality: quality.value, size: currentData.sizes?.[quality.value] || '—', sizeBytes: currentSize() }); });
-document.querySelector('#clear-history').addEventListener('click', () => { localStorage.removeItem('clipforge-history'); renderHistory(); showToast('История очищена'); });
-urlInput.addEventListener('keydown', (event) => { if (event.key === 'Enter') analyzeButton.click(); });
-renderHistory();
+function formatBytes(bytes) {
+  if (bytes < 1024) return `${bytes} Б`;
+  if (bytes < 1024 ** 2) return `${Math.round(bytes / 1024)} КБ`;
+  return `${(bytes / 1024 ** 2).toFixed(1)} МБ`;
+}
+
+function baseName(name) {
+  return name.replace(/\.[^.]+$/, '').replace(/[^a-zа-яё0-9_-]+/gi, '-').replace(/^-|-$/g, '') || 'image';
+}
+
+function updateControls() {
+  const converted = files.filter((item) => item.outputBlob).length;
+  fileCount.textContent = files.length ? `${files.length} ${files.length === 1 ? 'файл' : files.length < 5 ? 'файла' : 'файлов'}` : 'Нет файлов';
+  convertButton.disabled = files.length === 0;
+  clearButton.hidden = files.length === 0;
+  downloadAllButton.hidden = converted === 0;
+  emptyState.hidden = files.length > 0;
+}
+
+function renderFiles() {
+  fileList.innerHTML = '';
+  files.forEach((item) => {
+    const row = document.createElement('article');
+    row.className = 'file-row';
+    row.innerHTML = `<img src="${item.previewUrl}" alt="" /><div class="file-info"><strong>${item.file.name}</strong><span>${item.width} x ${item.height} px · ${formatBytes(item.file.size)}</span></div><div class="file-result">${item.outputBlob ? `<b>${formatBytes(item.outputBlob.size)}</b><span>${item.outputName}</span>` : '<span class="ready">Готов к обработке</span>'}</div><button class="remove-button" aria-label="Удалить файл">×</button>`;
+    row.querySelector('.remove-button').addEventListener('click', () => removeFile(item.id));
+    fileList.append(row);
+  });
+  updateControls();
+}
+
+function readImage(file) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    const url = URL.createObjectURL(file);
+    image.onload = () => resolve({ width: image.naturalWidth, height: image.naturalHeight, previewUrl: url });
+    image.onerror = () => { URL.revokeObjectURL(url); reject(new Error(`${file.name}: файл не удалось прочитать`)); };
+    image.src = url;
+  });
+}
+
+async function addFiles(fileListValue) {
+  const imageFiles = [...fileListValue].filter((file) => file.type.startsWith('image/'));
+  if (!imageFiles.length) return showToast('Выберите изображения');
+  for (const file of imageFiles) {
+    if (files.some((item) => item.file.name === file.name && item.file.size === file.size)) continue;
+    try { files.push({ id: crypto.randomUUID(), file, ...(await readImage(file)) }); } catch (error) { showToast(error.message); }
+  }
+  renderFiles();
+}
+
+function removeFile(id) {
+  const index = files.findIndex((item) => item.id === id);
+  if (index === -1) return;
+  URL.revokeObjectURL(files[index].previewUrl);
+  if (files[index].outputUrl) URL.revokeObjectURL(files[index].outputUrl);
+  files.splice(index, 1);
+  renderFiles();
+}
+
+function convertImage(item) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => {
+      const requestedWidth = Number(maxWidthInput.value) || image.naturalWidth;
+      const width = Math.min(image.naturalWidth, Math.max(1, requestedWidth));
+      const height = Math.round(image.naturalHeight * (width / image.naturalWidth));
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext('2d');
+      if (formatInput.value === 'jpeg') { context.fillStyle = '#ffffff'; context.fillRect(0, 0, width, height); }
+      context.drawImage(image, 0, 0, width, height);
+      const mime = `image/${formatInput.value}`;
+      canvas.toBlob((blob) => blob ? resolve({ blob, width, height }) : reject(new Error('Браузер не поддерживает этот формат')), mime, Number(qualityInput.value) / 100);
+    };
+    image.onerror = () => reject(new Error(`Не удалось обработать ${item.file.name}`));
+    image.src = item.previewUrl;
+  });
+}
+
+async function convertAll() {
+  convertButton.disabled = true;
+  convertButton.classList.add('loading');
+  convertButton.firstChild.textContent = 'Обрабатываем... ';
+  for (const item of files) {
+    try {
+      const result = await convertImage(item);
+      if (item.outputUrl) URL.revokeObjectURL(item.outputUrl);
+      item.outputBlob = result.blob;
+      item.outputUrl = URL.createObjectURL(result.blob);
+      item.outputName = `${baseName(item.file.name)}.${formatInput.value}`;
+      item.width = result.width;
+      item.height = result.height;
+    } catch (error) { showToast(error.message); }
+  }
+  convertButton.disabled = false;
+  convertButton.classList.remove('loading');
+  convertButton.firstChild.textContent = 'Конвертировать ';
+  renderFiles();
+  showToast('Готово — файлы обработаны в браузере');
+}
+
+function download(item) {
+  if (!item.outputUrl) return;
+  const link = document.createElement('a');
+  link.href = item.outputUrl;
+  link.download = item.outputName;
+  document.body.append(link);
+  link.click();
+  link.remove();
+}
+
+fileInput.addEventListener('change', (event) => addFiles(event.target.files));
+['dragenter', 'dragover'].forEach((eventName) => dropzone.addEventListener(eventName, (event) => { event.preventDefault(); dropzone.classList.add('dragging'); }));
+['dragleave', 'drop'].forEach((eventName) => dropzone.addEventListener(eventName, (event) => { event.preventDefault(); dropzone.classList.remove('dragging'); }));
+dropzone.addEventListener('drop', (event) => addFiles(event.dataTransfer.files));
+qualityInput.addEventListener('input', () => { qualityValue.textContent = qualityInput.value; });
+formatInput.addEventListener('change', () => { files.forEach((item) => { item.outputBlob = null; }); renderFiles(); });
+convertButton.addEventListener('click', convertAll);
+downloadAllButton.addEventListener('click', async () => { if (!files.every((item) => item.outputBlob)) await convertAll(); files.forEach(download); });
+clearButton.addEventListener('click', () => { while (files.length) removeFile(files[0].id); });
+updateControls();
