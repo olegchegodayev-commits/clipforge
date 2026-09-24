@@ -1,10 +1,14 @@
 import json
+import logging
 import os
 import shutil
 import subprocess
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+logger = logging.getLogger("clipforge")
 
 ROOT = Path(__file__).parent
 LOCAL_YTDLP = ROOT / ".venv" / ("Scripts" if os.name == "nt" else "bin") / ("yt-dlp.exe" if os.name == "nt" else "yt-dlp")
@@ -38,11 +42,18 @@ def ffmpeg_path():
 
 
 def run_ytdlp(args):
-    command = [str(YTDLP), "--no-warnings", "--extractor-args", "youtube:player_client=android"]
-    binary = ffmpeg_path()
-    if binary:
-        command += ["--ffmpeg-location", binary]
-    return subprocess.run(command + args, capture_output=True, text=True, check=True)
+    last_error = None
+    for client in ("android", "web_safari", "mweb"):
+        command = [str(YTDLP), "--no-warnings", "--extractor-args", f"youtube:player_client={client}"]
+        binary = ffmpeg_path()
+        if binary:
+            command += ["--ffmpeg-location", binary]
+        try:
+            return subprocess.run(command + args, capture_output=True, text=True, check=True)
+        except subprocess.CalledProcessError as error:
+            last_error = error
+            logger.warning("yt-dlp client %s failed: %s", client, (error.stderr or "").strip()[-500:])
+    raise last_error
 
 
 def stop_process_tree(process):
@@ -139,7 +150,8 @@ class Handler(BaseHTTPRequestHandler):
             heights = sorted({f.get("height") for f in info.get("formats", []) if f.get("vcodec") != "none" and f.get("height") in {360, 480, 720, 1080, 1440, 2160}})
             sizes, size_bytes = estimate_sizes(info)
             self.send_json(200, {"title": info.get("title"), "channel": info.get("channel") or info.get("uploader"), "duration": info.get("duration_string"), "thumbnail": info.get("thumbnail"), "heights": heights or [360, 480, 720], "sizes": sizes, "size_bytes": size_bytes})
-        except (subprocess.CalledProcessError, FileNotFoundError, json.JSONDecodeError):
+        except (subprocess.CalledProcessError, FileNotFoundError, json.JSONDecodeError) as error:
+            logger.exception("Video info lookup failed: %s", error)
             self.send_json(500, {"error": "Не удалось получить данные видео. Проверьте ссылку и установку yt-dlp."})
 
     def download(self, query):
