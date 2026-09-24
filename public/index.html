@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ClipForge — сохранение видео</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <nav class="topbar"><a class="brand" href="/"><span class="brand-mark">CF</span><span>CLIPFORGE</span></a><div class="site-nav"><a href="/about.html">О сервисе</a><a href="/guide.html">Как пользоваться</a><a href="/legal.html">Правовая информация</a><a href="/privacy.html">Приватность</a></div><span class="local-badge"><i></i> LOCAL TOOL</span></nav>
+      <section class="hero"><div class="eyebrow">VIDEO UTILITY / 01</div><h1>Сохрани момент.<br /><em>В своём качестве.</em></h1><p class="intro">Вставьте ссылку на YouTube, выберите разрешение и скачайте видео с аудиодорожкой в одном файле.</p></section>
+      <section class="workspace"><div class="input-row"><label for="url">Ссылка на видео</label><div class="url-wrap"><input id="url" type="url" placeholder="https://www.youtube.com/watch?v=..." autocomplete="off" /><button id="clear" class="icon-button" aria-label="Очистить">×</button></div><button id="analyze" class="analyze-button">Проверить <span>↗</span></button></div><div id="message" class="message" role="status"></div><div id="result" class="result hidden"><div class="preview"><img id="thumbnail" alt="Превью видео" /><span class="play">▶</span></div><div class="details"><div class="detail-kicker">READY TO DOWNLOAD</div><h2 id="title"></h2><p id="channel"></p><div class="meta"><span id="duration">—</span><span class="dot">•</span><span>audio + video</span></div></div><div class="options"><label for="quality">Качество</label><div class="quality-picker"><select id="quality"></select><span>⌄</span></div><button id="download" class="download-button">Скачать файл <span>↓</span></button></div></div><div id="active-downloads" class="active-downloads" aria-live="polite"></div><div id="history-panel" class="history-panel hidden"><div class="panel-heading"><span>История</span><button id="clear-history" class="text-button">Очистить</button></div><div id="history-list"></div></div></section>
+      <div id="toast" class="toast" role="status"></div>
+      <footer><span>CLIPFORGE / PRIVATE BY DESIGN</span><span>Сохраняйте только контент, на который у вас есть права.</span></footer>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>
